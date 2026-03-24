@@ -1,27 +1,48 @@
 def call(Map config = [:]) {
+
+    def imageName = config.imageName ?: 'jobservice'
+    def imageTag  = config.imageTag ?: "${env.BUILD_NUMBER}"
+    def fullImage = "${imageName}:${imageTag}"
+
+    def trivyPath = config.trivyPath ?: '/home/enz/trivy/docker-compose.yml'
+    def reportPath = config.reportPath ?: '/home/enz/trivy/reports/trivy-report.json'
+
+    def defectdojoUrl = config.defectdojoUrl ?: 'https://defectdojo.devith.it.com'
+    def defectdojoCred = config.defectdojoCredentialId ?: 'DEFECTDOJO'
+
+    def gitUrl = config.gitUrl ?: ''
+    def gitBranch = config.gitBranch ?: 'main'
+
+    def productType = config.productTypeName ?: 'Web Applications'
+    def productName = config.productName ?: 'JobFinder'
+    def engagementName = config.engagementName ?: 'Jenkins-CI'
+    def testTitle = config.testTitle ?: 'Trivy Image Scan'
+
+    def gateSeverity = config.gateSeverity ?: 'HIGH,CRITICAL'
+
     pipeline {
         agent {
             label config.agentLabel ?: 'trivy'
         }
 
         environment {
-            IMAGE_NAME = config.imageName ?: 'jobservice'
-            IMAGE_TAG  = config.imageTag ?: "${env.BUILD_NUMBER}"
-            FULL_IMAGE = "${IMAGE_NAME}:${IMAGE_TAG}"
+            IMAGE_NAME = "${imageName}"
+            IMAGE_TAG  = "${imageTag}"
+            FULL_IMAGE = "${fullImage}"
 
-            TRIVY_PATH = config.trivyPath ?: '/home/enz/trivy/docker-compose.yml'
-            REPORT_PATH = config.reportPath ?: '/home/enz/trivy/reports/trivy-report.json'
+            TRIVY_PATH = "${trivyPath}"
+            REPORT_PATH = "${reportPath}"
 
-            DEFECTDOJO_URL = config.defectdojoUrl ?: 'https://defectdojo.devith.it.com'
-            DEFECTDOJO_API_KEY = credentials(config.defectdojoCredentialId ?: 'DEFECTDOJO')
+            DEFECTDOJO_URL = "${defectdojoUrl}"
+            DEFECTDOJO_API_KEY = credentials("${defectdojoCred}")
 
-            GIT_URL = config.gitUrl ?: ''
-            GIT_BRANCH = config.gitBranch ?: 'main'
+            GIT_URL = "${gitUrl}"
+            GIT_BRANCH = "${gitBranch}"
 
-            PRODUCT_TYPE_NAME = config.productTypeName ?: 'Web Applications'
-            PRODUCT_NAME = config.productName ?: 'JobFinder'
-            ENGAGEMENT_NAME = config.engagementName ?: 'Jenkins-CI'
-            TEST_TITLE = config.testTitle ?: 'Trivy Image Scan'
+            PRODUCT_TYPE_NAME = "${productType}"
+            PRODUCT_NAME = "${productName}"
+            ENGAGEMENT_NAME = "${engagementName}"
+            TEST_TITLE = "${testTitle}"
         }
 
         stages {
@@ -51,18 +72,14 @@ def call(Map config = [:]) {
 
             stage('Security Gate') {
                 steps {
-                    securityGate(
-                        severity: config.gateSeverity ?: 'HIGH,CRITICAL'
-                    )
+                    securityGate(severity: gateSeverity)
                 }
             }
         }
 
         post {
             always {
-                sh '''
-                    cp ${REPORT_PATH} ./trivy-report.json || true
-                '''
+                sh 'cp ${REPORT_PATH} ./trivy-report.json || true'
                 archiveArtifacts artifacts: 'trivy-report.json', fingerprint: true, allowEmptyArchive: true
             }
         }
